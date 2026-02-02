@@ -1,0 +1,21 @@
+import mongoose from 'mongoose';
+
+const UserSchema = new mongoose.Schema({
+  name: String,
+  empId: { type: String, unique: true },
+  email: { type: String, unique: true },
+  password: String,
+
+  role: {
+    type: String,
+    enum: ['staff', 'manager', 'superadmin'],
+    default: 'staff',
+  },
+
+  locationId: {
+    type: String,
+    required: true,
+  },
+}, { timestamps: true });
+
+export default mongoose.model('User', UserSchema);

@@ -1,0 +1,120 @@
+import Hospital from './hospital.model.js';
+
+// Create a new hospital record
+async function createHospital(req, res, next) {
+  try {
+    if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: 'Not authenticated' });
+
+    const payload = req.body || {};
+    
+    // Validate clinicVisitId is provided
+    if (!payload.clinicVisitId) return res.status(400).json({ success: false, message: 'clinicVisitId is required' });
+
+    if (payload.createdBy) delete payload.createdBy;
+    payload.createdBy = req.user._id;
+    if (req.user.locationId) payload.locationId = req.user.locationId;
+
+    const item = new Hospital(payload);
+    const saved = await item.save();
+    const populated = await saved.populate('createdBy', 'name').populate('clinicVisitId', 'tokenNo empNo employeeName');
+    return res.status(201).json({ success: true, data: populated });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// List hospitals with optional filters and pagination
+async function getHospitals(req, res, next) {
+  try {
+    const { page = 1, limit = 20, locationId, empNo, emiratesId, status, startDate, endDate } = req.query;
+    const q = {};
+    if (locationId) q.locationId = locationId;
+    if (empNo) q.empNo = empNo;
+    if (emiratesId) q.emiratesId = emiratesId;
+    if (status) q.status = status;
+    if (startDate || endDate) {
+      q.dateOfAdmission = {};
+      if (startDate) q.dateOfAdmission.$gte = new Date(startDate);
+      if (endDate) q.dateOfAdmission.$lte = new Date(endDate);
+    }
+
+    const p = Math.max(1, parseInt(page, 10));
+    const l = Math.max(1, parseInt(limit, 10));
+
+    const [total, items] = await Promise.all([
+      Hospital.countDocuments(q),
+      Hospital.find(q).sort({ dateOfAdmission: -1, sno: 1 }).skip((p - 1) * l).limit(l).populate('createdBy', 'name').populate('clinicVisitId', 'tokenNo empNo employeeName'),
+    ]);
+
+    return res.json({ success: true, data: items, meta: { total, page: p, limit: l } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Get a single hospital record
+async function getHospitalById(req, res, next) {
+  try {
+    const { id } = req.params;
+    const item = await Hospital.findById(id).populate('createdBy', 'name').populate('clinicVisitId', 'tokenNo empNo employeeName');
+    if (!item) return res.status(404).json({ success: false, message: 'Not found' });
+    return res.json({ success: true, data: item });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Update hospital record
+async function updateHospital(req, res, next) {
+  try {
+    if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: 'Not authenticated' });
+    const { id } = req.params;
+    const payload = { ...req.body };
+    if (payload.createdBy) delete payload.createdBy;
+    // do not overwrite locationId from client; allow admin to change if needed in separate flow
+
+    let updated = await Hospital.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
+    if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
+    updated = await updated.populate('createdBy', 'name');
+    return res.json({ success: true, data: updated });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Delete hospital record
+async function deleteHospital(req, res, next) {
+  try {
+    if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: 'Not authenticated' });
+    const { id } = req.params;
+    let deleted = await Hospital.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ success: false, message: 'Not found' });
+    deleted = await deleted.populate('createdBy', 'name');
+    return res.json({ success: true, data: deleted });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Get hospitals for the authenticated user's location
+async function getHospitalsByUserLocation(req, res, next) {
+  try {
+    if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: 'Not authenticated' });
+    const locationId = req.user.locationId;
+    if (!locationId) return res.status(400).json({ success: false, message: 'User has no locationId' });
+
+    const { page = 1, limit = 50 } = req.query;
+    const p = Math.max(1, parseInt(page, 10));
+    const l = Math.max(1, parseInt(limit, 10));
+
+    const [total, items] = await Promise.all([
+      Hospital.countDocuments({ locationId }),
+      Hospital.find({ locationId }).sort({ dateOfAdmission: -1, sno: 1 }).skip((p - 1) * l).limit(l).populate('createdBy', 'name'),
+    ]);
+
+    return res.json({ success: true, data: items, meta: { total, page: p, limit: l } });
+  } catch (err) {
+    next(err);
+  }
+}
+export default { createHospital, getHospitals, getHospitalById, updateHospital, deleteHospital, getHospitalsByUserLocation };
