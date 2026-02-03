@@ -6,6 +6,26 @@ async function createVisit(req, res, next) {
 		if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: 'Not authenticated' });
 
 		const payload = req.body || {};
+
+		const requiredFields = [
+			"date",
+			"time",
+			"empNo",
+			"employeeName",
+			"emiratesId",
+			"trLocation",
+			"mobileNumber",
+			"natureOfCase",
+			"caseCategory",
+		];
+
+		const missing = requiredFields.filter((key) => !payload[key]);
+		if (missing.length) {
+			return res.status(400).json({
+				success: false,
+				message: `Missing required fields: ${missing.join(", ")}`,
+			});
+		}
 		// ignore any client-supplied createdBy
 		if (payload.createdBy) delete payload.createdBy;
 		payload.createdBy = req.user._id;
@@ -127,10 +147,12 @@ async function getVisits(req, res, next) {
 		const [total, items] = await Promise.all([
 			ClinicVisit.countDocuments(q),
 			ClinicVisit.find(q)
-				.sort({ date: -1, slNo: 1 })
+				.sort({ date: -1, tokenNo: 1 })
 				.skip((p - 1) * l)
 				.limit(l)
-				.populate('createdBy', 'name'),
+				.populate('createdBy', 'name')
+				.populate('hospitalizations')
+				.populate('isolations'),
 		]);
 
 		return res.json({ success: true, data: items, meta: { total, page: p, limit: l } });
@@ -143,7 +165,10 @@ async function getVisits(req, res, next) {
 async function getVisitById(req, res, next) {
 	try {
 		const { id } = req.params;
-		const visit = await ClinicVisit.findById(id).populate('createdBy', 'name');
+		const visit = await ClinicVisit.findById(id)
+			.populate('createdBy', 'name')
+			.populate('hospitalizations')
+			.populate('isolations');
 		if (!visit) return res.status(404).json({ success: false, message: 'Not found' });
 		return res.json({ success: true, data: visit });
 	} catch (err) {
@@ -172,7 +197,10 @@ async function updateVisit(req, res, next) {
 		
 		let updated = await ClinicVisit.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
 		if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
-		updated = await updated.populate('createdBy', 'name');
+		updated = await updated
+			.populate('createdBy', 'name')
+			.populate('hospitalizations')
+			.populate('isolations');
 		return res.json({ success: true, data: updated });
 	} catch (err) {
 		next(err);
@@ -185,7 +213,10 @@ async function deleteVisit(req, res, next) {
 		const { id } = req.params;
 		let deleted = await ClinicVisit.findByIdAndDelete(id);
 		if (!deleted) return res.status(404).json({ success: false, message: 'Not found' });
-		deleted = await deleted.populate('createdBy', 'name');
+		deleted = await deleted
+			.populate('createdBy', 'name')
+			.populate('hospitalizations')
+			.populate('isolations');
 		return res.json({ success: true, data: deleted });
 	} catch (err) {
 		next(err);
@@ -205,7 +236,13 @@ async function getVisitsByUserLocation(req, res, next) {
 
 		const [total, items] = await Promise.all([
 			ClinicVisit.countDocuments({ locationId }),
-			ClinicVisit.find({ locationId }).sort({ date: -1, slNo: 1 }).skip((p - 1) * l).limit(l).populate('createdBy', 'name'),
+			ClinicVisit.find({ locationId })
+				.sort({ date: -1, tokenNo: 1 })
+				.skip((p - 1) * l)
+				.limit(l)
+				.populate('createdBy', 'name')
+				.populate('hospitalizations')
+				.populate('isolations'),
 		]);
 
 		return res.json({ success: true, data: items, meta: { total, page: p, limit: l } });

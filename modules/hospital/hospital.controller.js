@@ -16,7 +16,10 @@ async function createHospital(req, res, next) {
 
     const item = new Hospital(payload);
     const saved = await item.save();
-    const populated = await saved.populate('createdBy', 'name').populate('clinicVisitId', 'tokenNo empNo employeeName');
+    const populated = await saved.populate([
+      { path: 'createdBy', select: 'name' },
+      { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+    ]);
     return res.status(201).json({ success: true, data: populated });
   } catch (err) {
     next(err);
@@ -43,7 +46,10 @@ async function getHospitals(req, res, next) {
 
     const [total, items] = await Promise.all([
       Hospital.countDocuments(q),
-      Hospital.find(q).sort({ dateOfAdmission: -1, sno: 1 }).skip((p - 1) * l).limit(l).populate('createdBy', 'name').populate('clinicVisitId', 'tokenNo empNo employeeName'),
+      Hospital.find(q).sort({ dateOfAdmission: -1, sno: 1 }).skip((p - 1) * l).limit(l).populate([
+        { path: 'createdBy', select: 'name' },
+        { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+      ]),
     ]);
 
     return res.json({ success: true, data: items, meta: { total, page: p, limit: l } });
@@ -56,7 +62,10 @@ async function getHospitals(req, res, next) {
 async function getHospitalById(req, res, next) {
   try {
     const { id } = req.params;
-    const item = await Hospital.findById(id).populate('createdBy', 'name').populate('clinicVisitId', 'tokenNo empNo employeeName');
+    const item = await Hospital.findById(id).populate([
+      { path: 'createdBy', select: 'name' },
+      { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+    ]);
     if (!item) return res.status(404).json({ success: false, message: 'Not found' });
     return res.json({ success: true, data: item });
   } catch (err) {
@@ -75,7 +84,10 @@ async function updateHospital(req, res, next) {
 
     let updated = await Hospital.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
     if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
-    updated = await updated.populate('createdBy', 'name');
+    updated = await updated.populate([
+      { path: 'createdBy', select: 'name' },
+      { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+    ]);
     return res.json({ success: true, data: updated });
   } catch (err) {
     next(err);
@@ -89,7 +101,10 @@ async function deleteHospital(req, res, next) {
     const { id } = req.params;
     let deleted = await Hospital.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ success: false, message: 'Not found' });
-    deleted = await deleted.populate('createdBy', 'name');
+    deleted = await deleted.populate([
+      { path: 'createdBy', select: 'name' },
+      { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+    ]);
     return res.json({ success: true, data: deleted });
   } catch (err) {
     next(err);
@@ -109,8 +124,12 @@ async function getHospitalsByUserLocation(req, res, next) {
 
     const [total, items] = await Promise.all([
       Hospital.countDocuments({ locationId }),
-      Hospital.find({ locationId }).sort({ dateOfAdmission: -1, sno: 1 }).skip((p - 1) * l).limit(l).populate('createdBy', 'name'),
+      Hospital.find({ locationId }).sort({ dateOfAdmission: -1, sno: 1 }).skip((p - 1) * l).limit(l).populate([
+        { path: 'createdBy', select: 'name' },
+        { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+      ]),
     ]);
+
 
     return res.json({ success: true, data: items, meta: { total, page: p, limit: l } });
   } catch (err) {

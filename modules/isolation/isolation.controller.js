@@ -16,7 +16,10 @@ async function createIsolation(req, res, next) {
 
     const item = new Isolation(payload);
     const saved = await item.save();
-    const populated = await saved.populate('createdBy', 'name').populate('clinicVisitId', 'tokenNo empNo employeeName');
+    const populated = await saved.populate([
+      { path: 'createdBy', select: 'name' },
+      { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' },
+    ]);
     return res.status(201).json({ success: true, data: populated });
   } catch (err) { next(err); }
 }
