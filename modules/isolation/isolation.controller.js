@@ -1,4 +1,5 @@
 import Isolation from './isolation.model.js';
+import ClinicVisit from '../clinic/clinic.model.js';
 
 // Create isolation record
 async function createIsolation(req, res, next) {
@@ -20,6 +21,11 @@ async function createIsolation(req, res, next) {
       { path: 'createdBy', select: 'name' },
       { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' },
     ]);
+    await ClinicVisit.findByIdAndUpdate(
+      saved.clinicVisitId,
+      { $addToSet: { isolations: saved._id } },
+      { new: false }
+    );
     return res.status(201).json({ success: true, data: populated });
   } catch (err) { next(err); }
 }
@@ -70,7 +76,10 @@ async function updateIsolation(req, res, next) {
 
     let updated = await Isolation.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
     if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
-    updated = await updated.populate('createdBy', 'name');
+    updated = await updated.populate([
+      { path: 'createdBy', select: 'name' },
+      { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+    ]);
     return res.json({ success: true, data: updated });
   } catch (err) { next(err); }
 }
@@ -82,7 +91,17 @@ async function deleteIsolation(req, res, next) {
     const { id } = req.params;
     let deleted = await Isolation.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ success: false, message: 'Not found' });
-    deleted = await deleted.populate('createdBy', 'name');
+    deleted = await deleted.populate([
+      { path: 'createdBy', select: 'name' },
+      { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+    ]);
+    if (deleted.clinicVisitId) {
+      await ClinicVisit.findByIdAndUpdate(
+        deleted.clinicVisitId,
+        { $pull: { isolations: deleted._id } },
+        { new: false }
+      );
+    }
     return res.json({ success: true, data: deleted });
   } catch (err) { next(err); }
 }
@@ -100,7 +119,10 @@ async function getIsolationsByUserLocation(req, res, next) {
 
     const [total, items] = await Promise.all([
       Isolation.countDocuments({ locationId }),
-      Isolation.find({ locationId }).sort({ dateFrom: -1, siNo: 1 }).skip((p - 1) * l).limit(l).populate('createdBy', 'name'),
+      Isolation.find({ locationId }).sort({ dateFrom: -1, siNo: 1 }).skip((p - 1) * l).limit(l).populate([
+        { path: 'createdBy', select: 'name' },
+        { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+      ]),
     ]);
 
     return res.json({ success: true, data: items, meta: { total, page: p, limit: l } });

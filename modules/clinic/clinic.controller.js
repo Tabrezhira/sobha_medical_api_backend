@@ -197,10 +197,11 @@ async function updateVisit(req, res, next) {
 		
 		let updated = await ClinicVisit.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
 		if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
-		updated = await updated
-			.populate('createdBy', 'name')
-			.populate('hospitalizations')
-			.populate('isolations');
+		updated = await updated.populate([
+			{ path: 'createdBy', select: 'name' },
+			{ path: 'hospitalizations' },
+			{ path: 'isolations' }
+		]);
 		return res.json({ success: true, data: updated });
 	} catch (err) {
 		next(err);
@@ -213,10 +214,11 @@ async function deleteVisit(req, res, next) {
 		const { id } = req.params;
 		let deleted = await ClinicVisit.findByIdAndDelete(id);
 		if (!deleted) return res.status(404).json({ success: false, message: 'Not found' });
-		deleted = await deleted
-			.populate('createdBy', 'name')
-			.populate('hospitalizations')
-			.populate('isolations');
+		deleted = await deleted.populate([
+			{ path: 'createdBy', select: 'name' },
+			{ path: 'hospitalizations' },
+			{ path: 'isolations' }
+		]);
 		return res.json({ success: true, data: deleted });
 	} catch (err) {
 		next(err);

@@ -1,4 +1,5 @@
 import Hospital from './hospital.model.js';
+import ClinicVisit from '../clinic/clinic.model.js';
 
 // Create a new hospital record
 async function createHospital(req, res, next) {
@@ -20,6 +21,11 @@ async function createHospital(req, res, next) {
       { path: 'createdBy', select: 'name' },
       { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
     ]);
+    await ClinicVisit.findByIdAndUpdate(
+      saved.clinicVisitId,
+      { $addToSet: { hospitalizations: saved._id } },
+      { new: false }
+    );
     return res.status(201).json({ success: true, data: populated });
   } catch (err) {
     next(err);
@@ -105,6 +111,13 @@ async function deleteHospital(req, res, next) {
       { path: 'createdBy', select: 'name' },
       { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
     ]);
+    if (deleted.clinicVisitId) {
+      await ClinicVisit.findByIdAndUpdate(
+        deleted.clinicVisitId,
+        { $pull: { hospitalizations: deleted._id } },
+        { new: false }
+      );
+    }
     return res.json({ success: true, data: deleted });
   } catch (err) {
     next(err);
