@@ -28,21 +28,49 @@ async function register(req, res, next) {
 
 // Login: returns JWT
 async function login(req, res, next) {
-	try {
-		const { email, empId, password } = req.body || {};
-		if ((!email && !empId) || !password) return res.status(400).json({ success: false, message: 'credentials required' });
+  try {
+    let { email, empId, password } = req.body || {};
 
-		const user = await User.findOne(email ? { email } : { empId });
-		if (!user) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    if ((!email && !empId) || !password) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'credentials required' });
+    }
 
-		const ok = await bcrypt.compare(password, user.password || '');
-		if (!ok) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    // 🔥 normalize email if present
+    if (email) email = email.toLowerCase().trim();
 
-		const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-		const out = user.toObject(); delete out.password;
-		return res.json({ success: true, data: out, token });
-	} catch (err) { next(err); }
+    const query = email ? { email } : { empId };
+
+    const user = await User.findOne(query);
+    if (!user) {
+      return res
+        .status(401)
+        .json({ success: false, message: 'Invalid credentials' });
+    }
+
+    const ok = await bcrypt.compare(password, user.password || '');
+    if (!ok) {
+      return res
+        .status(401)
+        .json({ success: false, message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const out = user.toObject();
+    delete out.password;
+
+    return res.json({ success: true, data: out, token });
+  } catch (err) {
+    next(err);
+  }
 }
+
 
 // List users with simple filters and pagination
 async function getUsers(req, res, next) {
