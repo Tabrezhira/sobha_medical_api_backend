@@ -114,8 +114,55 @@ async function createVisit(req, res, next) {
 }
 
 // Get list of visits with optional filters and pagination
+// async function getVisits(req, res, next) {
+// 	try {
+// 		const {
+// 			page = 1,
+// 			limit = 20,
+// 			emiratesId,
+// 			empNo,
+// 			visitStatus,
+// 			locationId,
+// 			startDate,
+// 			endDate,
+// 			tokenNo,
+// 		} = req.query;
+
+// 		const q = {};
+// 		if (emiratesId) q.emiratesId = emiratesId;
+// 		if (empNo) q.empNo = empNo;
+// 		if (visitStatus) q.visitStatus = visitStatus;
+// 		if (locationId) q.locationId = locationId;
+// 		if (tokenNo) q.tokenNo = tokenNo;
+
+// 		if (startDate || endDate) {
+// 			q.date = {};
+// 			if (startDate) q.date.$gte = new Date(startDate);
+// 			if (endDate) q.date.$lte = new Date(endDate);
+// 		}
+
+// 		const p = Math.max(1, parseInt(page, 10));
+// 		const l = Math.max(1, parseInt(limit, 10));
+
+// 		const [total, items] = await Promise.all([
+// 			ClinicVisit.countDocuments(q),
+// 			ClinicVisit.find(q)
+// 				.sort({ date: -1, tokenNo: 1 })
+// 				.skip((p - 1) * l)
+// 				.limit(l)
+// 				.populate('createdBy', 'name')
+// 				.populate('hospitalizations')
+// 				.populate('isolations'),
+// 		]);
+
+// 		return res.json({ success: true, data: items, meta: { total, page: p, limit: l } });
+// 	} catch (err) {
+// 		next(err);
+// 	}
+// }
 async function getVisits(req, res, next) {
 	try {
+		// 1️⃣ Extract query params with defaults
 		const {
 			page = 1,
 			limit = 20,
@@ -128,6 +175,7 @@ async function getVisits(req, res, next) {
 			tokenNo,
 		} = req.query;
 
+		// 2️⃣ Build Mongo query object
 		const q = {};
 		if (emiratesId) q.emiratesId = emiratesId;
 		if (empNo) q.empNo = empNo;
@@ -135,19 +183,22 @@ async function getVisits(req, res, next) {
 		if (locationId) q.locationId = locationId;
 		if (tokenNo) q.tokenNo = tokenNo;
 
+		// Date range filter
 		if (startDate || endDate) {
 			q.date = {};
 			if (startDate) q.date.$gte = new Date(startDate);
 			if (endDate) q.date.$lte = new Date(endDate);
 		}
 
+		// 3️⃣ Pagination
 		const p = Math.max(1, parseInt(page, 10));
 		const l = Math.max(1, parseInt(limit, 10));
 
+		// 4️⃣ Fetch total count and items
 		const [total, items] = await Promise.all([
 			ClinicVisit.countDocuments(q),
 			ClinicVisit.find(q)
-				.sort({ date: -1, tokenNo: 1 })
+				.sort({ date: -1, tokenNo: 1 }) // 🔥 newest date first, then tokenNo
 				.skip((p - 1) * l)
 				.limit(l)
 				.populate('createdBy', 'name')
@@ -155,11 +206,17 @@ async function getVisits(req, res, next) {
 				.populate('isolations'),
 		]);
 
-		return res.json({ success: true, data: items, meta: { total, page: p, limit: l } });
+		// 5️⃣ Send response
+		return res.json({
+			success: true,
+			data: items,
+			meta: { total, page: p, limit: l },
+		});
 	} catch (err) {
 		next(err);
 	}
 }
+
 
 // Get a single visit by id
 async function getVisitById(req, res, next) {
