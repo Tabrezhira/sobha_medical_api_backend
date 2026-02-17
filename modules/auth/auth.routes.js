@@ -8,6 +8,7 @@ const router = express.Router();
 // Public
 router.post("/", controller.register);
 router.post("/login", controller.login);
+router.post("/refresh", auth, controller.refreshToken);
 
 // Protected user management
 router.get("/", auth, controller.getUsers);

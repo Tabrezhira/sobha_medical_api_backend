@@ -34,12 +34,24 @@ import isolationRoutes from './modules/isolation/isolation.routes.js';
 import hospitalRoutes from './modules/hospital/hospital.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
+import resolutionRoutes from './modules/handI/resolution/resolution.routes.js';
+import ipAdmissionRoutes from './modules/handI/ipAdmission/ipAdmission.routes.js';
+import memberFeedbackRoutes from './modules/handI/memberFeedback/memberFeedback.routes.js';
+import notAnsCallRoutes from './modules/handI/notAnsCall/notAnsCall.routes.js';
+import grievanceRoutes from './modules/handI/grievance/grievance.routes.js';
+import happinessSurveyRoutes from './modules/handI/happinessSurvey/happinessSurvey.routes.js';
 
 app.use('/api/clinic', clinicRoutes);
 app.use('/api/isolation', isolationRoutes);
 app.use('/api/hospital', hospitalRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/resolution', resolutionRoutes);
+app.use('/api/ip-admission', ipAdmissionRoutes);
+app.use('/api/member-feedback', memberFeedbackRoutes);
+app.use('/api/not-ans-call', notAnsCallRoutes);
+app.use('/api/grievance', grievanceRoutes);
+app.use('/api/happiness-survey', happinessSurveyRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

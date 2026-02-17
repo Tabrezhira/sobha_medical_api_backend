@@ -1,8 +1,7 @@
 import User from './user.model.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
+import { JWT_SECRET } from '../../config/jwt.js';
 
 // Register a new user
 async function register(req, res, next) {
@@ -59,7 +58,7 @@ async function login(req, res, next) {
     const token = jwt.sign(
       { id: user._id, role: user.role },
       JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '1d' }
     );
 
     const out = user.toObject();
@@ -126,5 +125,24 @@ async function deleteUser(req, res, next) {
 	} catch (err) { next(err); }
 }
 
-export default { register, login, getUsers, getUserById, updateUser, deleteUser };
+// Refresh token: validate JWT and issue a new one with user data
+async function refreshToken(req, res, next) {
+	try {
+		const user = req.user;
+		if (!user) return res.status(401).json({ success: false, message: 'Invalid token' });
+
+		const token = jwt.sign(
+			{ id: user._id, role: user.role },
+			JWT_SECRET,
+			{ expiresIn: '1d' }
+		);
+
+		const out = user.toObject();
+		delete out.password;
+
+		return res.json({ success: true, data: out, token });
+	} catch (err) { next(err); }
+}
+
+export default { register, login, getUsers, getUserById, updateUser, deleteUser, refreshToken };
 

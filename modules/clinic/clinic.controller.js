@@ -309,5 +309,80 @@ async function getVisitsByUserLocation(req, res, next) {
 		next(err);
 	}
 }
-export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation };
+
+// Get summary for an employee (by empNo)
+async function getEmpSummary(req, res, next) {
+	try {
+		const empNo = req.query.empNo || req.params.empNo;
+		if (!empNo) return res.status(400).json({ success: false, message: 'empNo is required' });
+
+		const now = new Date();
+		const last90Start = new Date(now);
+		last90Start.setDate(last90Start.getDate() - 90);
+		last90Start.setHours(0, 0, 0, 0);
+
+		const [
+			allTimeTotalVisits,
+			last90Visits,
+			sickLeaveApprovedCount,
+			referralAgg,
+		] = await Promise.all([
+			ClinicVisit.countDocuments({ empNo }),
+			ClinicVisit.find({ empNo, date: { $gte: last90Start } })
+				.sort({ date: -1 })
+				.select('date providerName doctorName sentTo'),
+			ClinicVisit.countDocuments({ empNo, sickLeaveStatus: 'Approved' }),
+			ClinicVisit.aggregate([
+				{ $match: { empNo } },
+				{
+					$project: {
+						refCount: { $size: { $ifNull: ['$referrals', []] } },
+						openRefCount: {
+							$size: {
+								$filter: {
+									input: { $ifNull: ['$referrals', []] },
+									as: 'r',
+									cond: { $eq: ['$$r.followUpRequired', true] },
+								},
+							},
+						},
+					},
+				},
+				{
+					$group: {
+						_id: null,
+						totalReferrals: { $sum: '$refCount' },
+						openReferrals: { $sum: '$openRefCount' },
+					},
+				},
+			]),
+		]);
+
+		const visitsLast90Days = last90Visits.map((v) => ({
+			date: v.date,
+			provider: v.providerName || v.doctorName || v.sentTo || null,
+		}));
+
+		const totals = referralAgg && referralAgg.length ? referralAgg[0] : { totalReferrals: 0, openReferrals: 0 };
+
+		return res.json({
+			success: true,
+			data: {
+				empNo,
+				last90Days: {
+					count: last90Visits.length,
+					visits: visitsLast90Days,
+				},
+				allTimeTotalVisits,
+				sickLeaveApprovedCount,
+				totalReferrals: totals.totalReferrals || 0,
+				openReferrals: totals.openReferrals || 0,
+			},
+		});
+	} catch (err) {
+		next(err);
+	}
+}
+
+export default { createVisit, getVisits, getVisitById, updateVisit, deleteVisit, getVisitsByUserLocation, getEmpSummary };
 

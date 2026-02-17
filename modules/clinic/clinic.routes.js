@@ -12,6 +12,7 @@ const router = express.Router();
 
 router.post("/", auth, controller.createVisit);
 router.get("/", controller.getVisits);
+router.get("/summary", controller.getEmpSummary);
 router.get("/my-location", auth, controller.getVisitsByUserLocation);
 router.get("/:id", controller.getVisitById);
 router.put("/:id", controller.updateVisit);
