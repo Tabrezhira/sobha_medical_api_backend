@@ -1,13 +1,21 @@
 import IpAdmission from "./ipAdmission.model.js";
 
+function isSuperAdmin(user) {
+  return user?.role === "superadmin";
+}
+
+function canAccessRecord(record, user) {
+  if (isSuperAdmin(user)) return true;
+  return String(record?.hiManager) === String(user?.name);
+}
+
 // Create IP admission record (manager only)
 async function createIpAdmission(req, res, next) {
   try {
-    const { locationId, ...data } = req.body;
+    const { hiManager, ...data } = req.body;
     const newRecord = new IpAdmission({
-      locationId: req.user.locationId,
+      hiManager: req.user.name,
       ...data,
-      createdBy: req.user._id,
     });
     await newRecord.save();
     return res.status(201).json({ success: true, data: newRecord });
@@ -16,25 +24,24 @@ async function createIpAdmission(req, res, next) {
   }
 }
 
-// Get all IP admissions for user's location (manager only)
+// Get all IP admissions for user (manager only)
 async function getIpAdmissions(req, res, next) {
   try {
-    const { page = 1, limit = 50, status, empNo, emiratesId } = req.query;
+    const { page = 1, limit = 50, insuranceApprovalStatus, caseType } = req.query;
     const p = Math.max(1, parseInt(page, 10));
     const l = Math.max(1, parseInt(limit, 10));
 
-    const query = { locationId: req.user.locationId };
-    if (status) query.status = status;
-    if (empNo) query.empNo = empNo;
-    if (emiratesId) query.emiratesId = emiratesId;
+    const query = isSuperAdmin(req.user) ? {} : { hiManager: req.user.name };
+    if (insuranceApprovalStatus) query.insuranceApprovalStatus = insuranceApprovalStatus;
+    if (caseType) query.caseType = caseType;
 
     const [total, items] = await Promise.all([
       IpAdmission.countDocuments(query),
       IpAdmission.find(query)
-        .sort({ doa: -1 })
+        .sort({ updatedAt: -1 })
         .skip((p - 1) * l)
         .limit(l)
-        .populate("createdBy", "name email"),
+        .populate("hospitalCase", "name code"),
     ]);
 
     return res.json({
@@ -52,13 +59,13 @@ async function getIpAdmissionById(req, res, next) {
   try {
     const { id } = req.params;
     const record = await IpAdmission.findById(id).populate(
-      "createdBy",
-      "name email"
+      "hospitalCase",
+      "name code"
     );
     if (!record) {
       return res.status(404).json({ success: false, message: "Record not found" });
     }
-    if (record.locationId !== req.user.locationId) {
+    if (!canAccessRecord(record, req.user)) {
       return res
         .status(403)
         .json({ success: false, message: "Access denied" });
@@ -77,13 +84,14 @@ async function updateIpAdmission(req, res, next) {
     if (!record) {
       return res.status(404).json({ success: false, message: "Record not found" });
     }
-    if (record.locationId !== req.user.locationId) {
+    if (!canAccessRecord(record, req.user)) {
       return res
         .status(403)
         .json({ success: false, message: "Access denied" });
     }
 
-    Object.assign(record, req.body);
+    const { hiManager, ...rest } = req.body || {};
+    Object.assign(record, rest);
     await record.save();
     return res.json({ success: true, data: record });
   } catch (err) {
@@ -99,7 +107,7 @@ async function deleteIpAdmission(req, res, next) {
     if (!record) {
       return res.status(404).json({ success: false, message: "Record not found" });
     }
-    if (record.locationId !== req.user.locationId) {
+    if (!canAccessRecord(record, req.user)) {
       return res
         .status(403)
         .json({ success: false, message: "Access denied" });

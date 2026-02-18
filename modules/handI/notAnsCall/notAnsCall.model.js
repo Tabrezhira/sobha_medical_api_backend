@@ -1,14 +1,18 @@
 import mongoose from "mongoose";
 
+
 const notAnsCallSchema = new mongoose.Schema(
   {
     date: {
       type: Date,
       required: true,
+       index: true 
     },
     manager: {
-      type: String,
+      ref:"User",
+      type: mongoose.Schema.Types.ObjectId,
       required: true,
+      index: true 
     },
     empNo: {
       type: String,

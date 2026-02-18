@@ -1,11 +1,32 @@
 import MemberFeedback from "./memberFeedback.model.js";
 
+function isSuperAdmin(user) {
+  return user?.role === "superadmin";
+}
+
+function getAllowedLocations(user) {
+  if (isSuperAdmin(user)) return null;
+  const base = user?.locationId ? [String(user.locationId)] : [];
+  const extra = Array.isArray(user?.managerLocation)
+    ? user.managerLocation.map((loc) => String(loc))
+    : [];
+  return Array.from(new Set([...base, ...extra]));
+}
+
+function hasLocationAccess(record, user) {
+  if (isSuperAdmin(user)) return true;
+  const recordLocation = record?.locationId ? String(record.locationId) : "";
+  const allowed = getAllowedLocations(user) || [];
+  return allowed.includes(recordLocation);
+}
+
 // Create member feedback record (manager only)
 async function createMemberFeedback(req, res, next) {
   try {
-    const { locationId, ...data } = req.body;
+    const { locationId, manager, ...data } = req.body;
     const newRecord = new MemberFeedback({
       locationId: req.user.locationId,
+      manager: req.user.name,
       ...data,
       createdBy: req.user._id,
     });
@@ -23,7 +44,10 @@ async function getMemberFeedback(req, res, next) {
     const p = Math.max(1, parseInt(page, 10));
     const l = Math.max(1, parseInt(limit, 10));
 
-    const query = { locationId: req.user.locationId };
+    const allowedLocations = getAllowedLocations(req.user);
+    const query = allowedLocations
+      ? { locationId: { $in: allowedLocations } }
+      : {};
     if (dateFrom || dateTo) {
       query.dateOfCall = {};
       if (dateFrom) query.dateOfCall.$gte = new Date(dateFrom);
@@ -61,7 +85,7 @@ async function getMemberFeedbackById(req, res, next) {
     if (!record) {
       return res.status(404).json({ success: false, message: "Record not found" });
     }
-    if (record.locationId !== req.user.locationId) {
+    if (!hasLocationAccess(record, req.user)) {
       return res
         .status(403)
         .json({ success: false, message: "Access denied" });
@@ -81,13 +105,14 @@ async function updateMemberFeedback(req, res, next) {
     if (!record) {
       return res.status(404).json({ success: false, message: "Record not found" });
     }
-    if (record.locationId !== req.user.locationId) {
+    if (!hasLocationAccess(record, req.user)) {
       return res
         .status(403)
         .json({ success: false, message: "Access denied" });
     }
 
-    Object.assign(record, req.body);
+    const { manager, ...rest } = req.body || {};
+    Object.assign(record, rest);
     await record.save();
     return res.json({ success: true, data: record });
   } catch (err) {
@@ -104,7 +129,7 @@ async function deleteMemberFeedback(req, res, next) {
     if (!record) {
       return res.status(404).json({ success: false, message: "Record not found" });
     }
-    if (record.locationId !== req.user.locationId) {
+    if (!hasLocationAccess(record, req.user)) {
       return res
         .status(403)
         .json({ success: false, message: "Access denied" });

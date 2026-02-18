@@ -11,6 +11,7 @@ const router = express.Router();
 // DELETE /clinic/:id   -> delete visit
 
 router.post("/", auth, controller.createVisit);
+router.get("/export/excel", controller.exportToExcel);
 router.get("/", controller.getVisits);
 router.get("/summary", controller.getEmpSummary);
 router.get("/my-location", auth, controller.getVisitsByUserLocation);

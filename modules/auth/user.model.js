@@ -18,7 +18,7 @@ const UserSchema = new mongoose.Schema({
   },
   managerLocation: {
   type: [String],
-}
+},
 }, { timestamps: true });
 
 export default mongoose.model('User', UserSchema);
