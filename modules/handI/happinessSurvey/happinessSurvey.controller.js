@@ -189,10 +189,47 @@ async function deleteHappinessSurvey(req, res, next) {
   }
 }
 
+// Check if employee had a survey within the last 90 days
+async function checkHappinessSurveyEligibility(req, res, next) {
+  try {
+    const { empId } = req.params;
+    if (!empId) {
+      return res.status(400).json({ success: false, message: "empId parameter is required" });
+    }
+
+    const normalizedEmpId = empId.toLowerCase();
+
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const recentSurvey = await HappinessSurvey.findOne({
+      empNo: normalizedEmpId,
+      date: { $gte: ninetyDaysAgo }
+    }).sort({ date: -1 });
+
+    if (!recentSurvey) {
+      return res.json({ success: true, status: "OK" });
+    }
+
+    const completionDate = new Date(recentSurvey.date);
+    completionDate.setDate(completionDate.getDate() + 90);
+
+    return res.json({
+      success: true,
+      data: {
+        empId: normalizedEmpId,
+        lastSurveyDate: recentSurvey.date,
+        nextEligibleDate: completionDate.toISOString()
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export default {
   createHappinessSurvey,
   getHappinessSurveys,
   getHappinessSurveyById,
   updateHappinessSurvey,
   deleteHappinessSurvey,
+  checkHappinessSurveyEligibility,
 };

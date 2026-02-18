@@ -5,6 +5,7 @@ const happinessSurveySchema = new mongoose.Schema(
         date: {
             type: Date,
             required: true,
+            index: true,
         },
         time: {
             type: String,
@@ -13,6 +14,9 @@ const happinessSurveySchema = new mongoose.Schema(
         empNo: {
             type: String,
             required: true,
+            index: true,
+            set: (value) => (typeof value === "string" ? value.toLowerCase() : value)
+            
         },
         empName: {
             type: String,

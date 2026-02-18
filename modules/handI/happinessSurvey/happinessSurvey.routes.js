@@ -9,6 +9,7 @@ const router = express.Router();
 // All happiness survey endpoints require authentication and manager role
 router.post("/", auth, role("manager"), happinessSurveyUpload, controller.createHappinessSurvey);
 router.get("/", auth, role("manager"), controller.getHappinessSurveys);
+router.get("/check/emp/:empId", auth, role("manager"), controller.checkHappinessSurveyEligibility);
 router.get("/:id", auth, role("manager"), controller.getHappinessSurveyById);
 router.put("/:id", auth, role("manager"), happinessSurveyUpload, controller.updateHappinessSurvey);
 router.delete("/:id", auth, role("manager"), controller.deleteHappinessSurvey);
