@@ -1,11 +1,9 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { connectDB } from './config/db.js';
-
-dotenv.config();
+import './config/env.js';
 const app = express();
 
 const corsOptions = {

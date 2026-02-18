@@ -1,3 +1,4 @@
+import "../../../config/env.js";
 import HappinessSurvey from "./happinessSurvey.model.js";
 import { v2 as cloudinary } from "cloudinary";
 import { Readable } from "stream";
@@ -27,23 +28,43 @@ const uploadToCloudinary = (fileBuffer, fileName, folder) => {
   });
 };
 
+const extractBufferFromBase64 = (value) => {
+  if (!value) return null;
+  const base64Payload = value.includes(",") ? value.split(",").pop() : value;
+  try {
+    return Buffer.from(base64Payload, "base64");
+  } catch (err) {
+    return null;
+  }
+};
+
+const pickFile = (files, key) => {
+  if (!files || !files[key] || !Array.isArray(files[key])) return null;
+  return files[key][0] || null;
+};
+
+const buildPublicId = (prefix) => `${prefix}-${Date.now()}-${Math.round(Math.random() * 1e4)}`;
+
 // Create happiness survey record (manager only)
 async function createHappinessSurvey(req, res, next) {
   try {
     const { photoBase64, signatureBase64, ...data } = req.body;
     const newRecord = new HappinessSurvey(data);
+    const files = req.files || {};
+    const photoFile = pickFile(files, "photo");
+    const signatureFile = pickFile(files, "signature");
 
     // Upload photo if provided
-    if (photoBase64) {
-      const buffer = Buffer.from(photoBase64.split(',')[1], 'base64');
-      const photoUrl = await uploadToCloudinary(buffer, `photo-${Date.now()}`, 'happiness-survey/photos');
+    const photoBuffer = photoFile?.buffer || extractBufferFromBase64(photoBase64);
+    if (photoBuffer) {
+      const photoUrl = await uploadToCloudinary(photoBuffer, buildPublicId("photo"), "happiness-survey/photos");
       newRecord.photoUrl = photoUrl;
     }
 
     // Upload signature if provided
-    if (signatureBase64) {
-      const buffer = Buffer.from(signatureBase64.split(',')[1], 'base64');
-      const signatureUrl = await uploadToCloudinary(buffer, `signature-${Date.now()}`, 'happiness-survey/signatures');
+    const signatureBuffer = signatureFile?.buffer || extractBufferFromBase64(signatureBase64);
+    if (signatureBuffer) {
+      const signatureUrl = await uploadToCloudinary(signatureBuffer, buildPublicId("signature"), "happiness-survey/signatures");
       newRecord.signatureUrl = signatureUrl;
     }
 
@@ -114,17 +135,21 @@ async function updateHappinessSurvey(req, res, next) {
       return res.status(404).json({ success: false, message: 'Record not found' });
     }
 
+    const files = req.files || {};
+    const photoFile = pickFile(files, "photo");
+    const signatureFile = pickFile(files, "signature");
+
     // Upload new photo if provided
-    if (photoBase64) {
-      const buffer = Buffer.from(photoBase64.split(',')[1], 'base64');
-      const photoUrl = await uploadToCloudinary(buffer, `photo-${Date.now()}`, 'happiness-survey/photos');
+    const photoBuffer = photoFile?.buffer || extractBufferFromBase64(photoBase64);
+    if (photoBuffer) {
+      const photoUrl = await uploadToCloudinary(photoBuffer, buildPublicId("photo"), 'happiness-survey/photos');
       data.photoUrl = photoUrl;
     }
 
     // Upload new signature if provided
-    if (signatureBase64) {
-      const buffer = Buffer.from(signatureBase64.split(',')[1], 'base64');
-      const signatureUrl = await uploadToCloudinary(buffer, `signature-${Date.now()}`, 'happiness-survey/signatures');
+    const signatureBuffer = signatureFile?.buffer || extractBufferFromBase64(signatureBase64);
+    if (signatureBuffer) {
+      const signatureUrl = await uploadToCloudinary(signatureBuffer, buildPublicId("signature"), 'happiness-survey/signatures');
       data.signatureUrl = signatureUrl;
     }
 
