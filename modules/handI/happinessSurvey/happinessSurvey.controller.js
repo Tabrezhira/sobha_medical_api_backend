@@ -225,6 +225,70 @@ async function checkHappinessSurveyEligibility(req, res, next) {
   }
 }
 
+// Get today's survey count by surveyor name
+async function getTodaySurveyCountBySurveyor(req, res, next) {
+  try {
+    const { surveyor } = req.params;
+    if (!surveyor) {
+      return res.status(400).json({ success: false, message: "surveyor parameter is required" });
+    }
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const count = await HappinessSurvey.countDocuments({
+      surveyor: { $regex: `^${surveyor}$`, $options: "i" },
+      date: { $gte: startOfDay, $lte: endOfDay },
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        surveyor,
+        date: startOfDay.toISOString().split("T")[0],
+        count,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Get yesterday's survey count by surveyor name
+async function getYesterdaySurveyCountBySurveyor(req, res, next) {
+  try {
+    const { surveyor } = req.params;
+    if (!surveyor) {
+      return res.status(400).json({ success: false, message: "surveyor parameter is required" });
+    }
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const startOfYesterday = new Date(yesterday);
+    startOfYesterday.setHours(0, 0, 0, 0);
+    const endOfYesterday = new Date(yesterday);
+    endOfYesterday.setHours(23, 59, 59, 999);
+
+    const count = await HappinessSurvey.countDocuments({
+      surveyor: { $regex: `^${surveyor}$`, $options: "i" },
+      date: { $gte: startOfYesterday, $lte: endOfYesterday },
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        surveyor,
+        date: startOfYesterday.toISOString().split("T")[0],
+        count,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export default {
   createHappinessSurvey,
   getHappinessSurveys,
@@ -232,4 +296,6 @@ export default {
   updateHappinessSurvey,
   deleteHappinessSurvey,
   checkHappinessSurveyEligibility,
+  getTodaySurveyCountBySurveyor,
+  getYesterdaySurveyCountBySurveyor,
 };

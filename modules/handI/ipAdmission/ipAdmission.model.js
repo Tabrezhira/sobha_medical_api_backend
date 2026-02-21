@@ -60,7 +60,6 @@ const ipAdmissionSchema = new mongoose.Schema(
 
     insuranceApprovalStatus: {
       type: String,
-
     },
 
     treatmentUndergone: { type: String },

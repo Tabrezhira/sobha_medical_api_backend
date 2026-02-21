@@ -13,7 +13,7 @@ const GrievanceSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    emiratesId: {
+    insuranceID: {
         type: String,
         required: true
     },

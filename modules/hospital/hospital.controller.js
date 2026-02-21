@@ -149,4 +149,86 @@ async function getHospitalsByUserLocation(req, res, next) {
     next(err);
   }
 }
-export default { createHospital, getHospitals, getHospitalById, updateHospital, deleteHospital, getHospitalsByUserLocation };
+
+// Get hospitals by manager location and set discharge status
+async function getHospitalsByManagerLocation(req, res, next) {
+  try {
+    if (!req.user || !req.user._id) return res.status(401).json({ success: false, message: 'Not authenticated' });
+    
+    // Get manager locations from JWT
+    const managerLocations = req.user.managerLocation || [];
+    
+    if (!managerLocations || managerLocations.length === 0) {
+      return res.status(400).json({ success: false, message: 'Manager has no assigned locations' });
+    }
+
+    const { page = 1, limit = 50 } = req.query;
+    const p = Math.max(1, parseInt(page, 10));
+    const l = Math.max(1, parseInt(limit, 10));
+
+    // Filter hospitals by manager's locationId where status is NOT "Discharge"
+    const [total, items] = await Promise.all([
+      Hospital.countDocuments({ 
+        locationId: { $in: managerLocations },
+        status: { $ne: 'Discharge' }
+      }),
+      Hospital.find({ 
+        locationId: { $in: managerLocations },
+        status: { $ne: 'Discharge' }
+      })
+        .sort({ dateOfAdmission: -1, sno: 1 })
+        .skip((p - 1) * l)
+        .limit(l)
+        .populate([
+          { path: 'createdBy', select: 'name' },
+          { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+        ]),
+    ]);
+
+    return res.json({ success: true, data: items, meta: { total, page: p, limit: l } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Get hospital by employee id and date
+async function getHospitalByEmployeeAndDate(req, res, next) {
+  try {
+    const { empNo, date } = req.query;
+
+    if (!empNo) {
+      return res.status(400).json({ success: false, message: 'Employee ID (empNo) is required' });
+    }
+    if (!date) {
+      return res.status(400).json({ success: false, message: 'Date is required' });
+    }
+
+    // Parse the date and create start and end of day
+    const startDate = new Date(date);
+    startDate.setHours(0, 0, 0, 0);
+    
+    const endDate = new Date(date);
+    endDate.setHours(23, 59, 59, 999);
+
+    const item = await Hospital.findOne({
+      empNo: empNo,
+      dateOfAdmission: {
+        $gte: startDate,
+        $lte: endDate
+      }
+    }).populate([
+      { path: 'createdBy', select: 'name' },
+      { path: 'clinicVisitId', select: 'tokenNo empNo employeeName' }
+    ]);
+
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'No hospital record found for this employee on the specified date' });
+    }
+
+    return res.json({ success: true, data: item });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export default { createHospital, getHospitals, getHospitalById, updateHospital, deleteHospital, getHospitalsByUserLocation, getHospitalsByManagerLocation, getHospitalByEmployeeAndDate };
